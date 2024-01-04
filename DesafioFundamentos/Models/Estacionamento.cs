@@ -1,49 +1,103 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Text.RegularExpressions;
+using System.Runtime.CompilerServices;
+
 namespace DesafioFundamentos.Models
 {
     public class Estacionamento
     {
-        private decimal precoInicial = 0;
-        private decimal precoPorHora = 0;
-        private List<string> veiculos = new List<string>();
+        private decimal _precoInicial, _precoPorHora;
+        private int _capacidadeEstacionamento;
+        private FichaEstacionamento[] _vagas;
 
-        public Estacionamento(decimal precoInicial, decimal precoPorHora)
+        private const string PadraoPlaca = @"^[A-Z]{3}\d{1}[A-Z0-9]{2}\d{2}$"; // AAA0AA(00)00
+        private const string PadraoCpf = @"^\d{3}\.\d{3}\.\d{3}-\d{2}$"; // 000.000.000-00
+        Regex regexPlaca = new Regex(PadraoPlaca);
+        Regex regexCpf = new Regex(PadraoCpf);
+        
+        public Estacionamento(decimal precoInicial, decimal precoPorHora, int capacidadeEstacionamento)
         {
-            this.precoInicial = precoInicial;
-            this.precoPorHora = precoPorHora;
+            _precoInicial = precoInicial;
+            _precoPorHora = precoPorHora;
+            _capacidadeEstacionamento = capacidadeEstacionamento;
+            _vagas = new FichaEstacionamento[capacidadeEstacionamento];
         }
 
         public void AdicionarVeiculo()
         {
-            // ✅TODO: Pedir para o usuário digitar uma placa (ReadLine) e adicionar na lista "veiculos"
             Console.WriteLine("Digite a placa do veículo para estacionar:");
-            string placa = Console.ReadLine();
-            veiculos.Add(placa);
-            Console.WriteLine($"O veículo {placa} foi estacionado com sucesso!");
+            string placa = Console.ReadLine().ToUpper();
+            while (!regexPlaca.IsMatch(placa)) // Valida se a entrada segue o padrão de strings de placas
+            {
+                Console.WriteLine("Digite uma placa válida:");
+                placa = Console.ReadLine().ToUpper();
+            };
+
+            Console.WriteLine("Digite o CPF do proprietário:");
+            string cpf = Console.ReadLine();
+            while (!regexCpf.IsMatch(cpf)) // Valida se a entrada segue o padrão de strings de cpfs
+            {
+                Console.WriteLine("Digite um cpf válido:");
+                cpf = Console.ReadLine();
+            };
+
+            DateTime horaEntrada = DateTime.Now; // Registra o momento do cadastro do veículo
+
+            FichaEstacionamento ficha = new FichaEstacionamento(placa, cpf, horaEntrada);
+            bool isFull = true;
+            for (int i = 0; i < _capacidadeEstacionamento; i++)
+            {
+                if (_vagas[i] == null)
+                {
+                    _vagas[i] = ficha;
+                    Console.WriteLine($"O veículo {placa} foi estacionado na vaga de número {i} às {horaEntrada} com sucesso sob a responsabilidade do cpf: {cpf}.");
+                    isFull = false;
+                    break;
+                }
+            }
+
+            if (isFull)
+            {
+                Console.WriteLine("O estacionamento está lotado!");
+            };
         }
 
         public void RemoverVeiculo()
         {
             Console.WriteLine("Digite a placa do veículo para remover:");
+            string placa = Console.ReadLine().ToUpper();
+            Console.WriteLine("Digite o CPF do responsável:");
+            string cpfCadastrado = Console.ReadLine();
 
-            // ✅Pedir para o usuário digitar a placa e armazenar na variável placa
-            string placa = Console.ReadLine();
-
-            // Verifica se o veículo existe
-            if (veiculos.Any(x => x.ToUpper() == placa.ToUpper()))
+            bool isFound = false;
+            string[] horas = {"04/01/2024 22:59:24", "04/01/2024 23:59:24", "05/01/2024 06:59:24"};
+            for (int i = 0; i < _capacidadeEstacionamento; i++)
             {
-                Console.WriteLine("Digite a quantidade de horas que o veículo permaneceu estacionado:");
-
-                // ✅TODO: Pedir para o usuário digitar a quantidade de horas que o veículo permaneceu estacionado,
-                // ✅TODO: Realizar o seguinte cálculo: "precoInicial + precoPorHora * horas" para a variável valorTotal
-                int horas = Convert.ToInt32(Console.ReadLine());
-                decimal valorTotal = precoInicial + precoPorHora * horas; 
-
-                // ✅TODO: Remover a placa digitada da lista de veículos
-                veiculos.Remove(placa);
-
-                Console.WriteLine($"O veículo {placa} foi removido e o preço total foi de: R$ {valorTotal}");
+                if (placa == _vagas[i].Placa)
+                {
+                    isFound = true;
+                    if (cpfCadastrado == _vagas[i].Cpf)
+                    {
+                        //DateTime horaSaida = DateTime.Now;
+                        DateTime horaSaida = DateTime.Parse(horas[i]);
+                        TimeSpan tempoEstacionado = horaSaida - _vagas[i].HoraEntrada;
+                        decimal valorTotal = _precoInicial + _precoPorHora * Convert.ToDecimal(tempoEstacionado.TotalHours);
+                        Console.WriteLine($"O veículo {placa} ficou estacionado de {_vagas[i].HoraEntrada} até {horaSaida} e foi removido pelo preço total de: R$ {valorTotal:C}");
+                        _vagas[i] = null;
+                        break;
+                    }
+                    else
+                    {
+                        Console.WriteLine("O CPF digitado não corresponde ao responsável pelo veículo.");
+                        break;
+                    }
+                }
             }
-            else
+
+            if (!isFound)
             {
                 Console.WriteLine("Desculpe, esse veículo não está estacionado aqui. Confira se digitou a placa corretamente");
             }
@@ -51,14 +105,15 @@ namespace DesafioFundamentos.Models
 
         public void ListarVeiculos()
         {
-            // Verifica se há veículos no estacionamento
-            if (veiculos.Any())
+            if (_vagas.Any(elemento => elemento != null)) // Verifica se há veículos no estacionamento
             {
                 Console.WriteLine("Os veículos estacionados são:");
-                // ✅TODO: Realizar um laço de repetição, exibindo os veículos estacionados
-                foreach (var placa in veiculos)
+                foreach (var veiculo in _vagas)
                 {
-                    Console.WriteLine(placa);
+                    if (veiculo != null)
+                    {
+                        Console.WriteLine($"Placa: {veiculo.Placa} | CPF: {veiculo.Cpf} | Data de entrada: {veiculo.HoraEntrada}");
+                    }
                 }
             }
             else
